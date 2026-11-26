@@ -1,0 +1,551 @@
+openapi: 3.0.0
+info:
+  title: Courier Service API
+  description: Сервис для управления курьерами, доставками и заказами
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /ping:
+    get:
+      summary: Ping endpoint
+      description: Проверка доступности сервиса
+      tags:
+        - Service
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: pong
+
+  /healthcheck:
+    head:
+      summary: Health check
+      description: Проверка состояния сервиса
+      tags:
+        - Service
+      responses:
+        '204':
+          description: Сервис работает
+
+  /api/v1/courier/{id}:
+    get:
+      summary: Получить курьера по ID
+      description: Возвращает информацию о курьере по его идентификатору
+      tags:
+        - Courier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор курьера
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierDTO'
+        '400':
+          description: Неверный формат ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Курьер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/couriers:
+    get:
+      summary: Получить список курьеров
+      description: Возвращает список курьеров с пагинацией
+      tags:
+        - Courier
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Количество записей для возврата (по умолчанию 10)
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Смещение для пагинации (по умолчанию 0)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourierDTO'
+        '204':
+          description: Курьеры не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/courier:
+    post:
+      summary: Создать курьера
+      description: Создает нового курьера с валидацией телефона, статуса и типа транспорта
+      tags:
+        - Courier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourierRequest'
+      responses:
+        '201':
+          description: Курьер успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierDTO'
+        '400':
+          description: Неверные данные запроса или ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Курьер с таким телефоном уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Обновить курьера
+      description: Обновляет информацию о курьере по ID
+      tags:
+        - Courier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCourierRequest'
+      responses:
+        '200':
+          description: Курьер успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierDTO'
+        '400':
+          description: Неверные данные запроса или ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Курьер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/delivery/assign:
+    post:
+      summary: Назначить курьера на заказ
+      description: Автоматически назначает доступного курьера на указанный заказ
+      tags:
+        - Delivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignDeliveryRequest'
+      responses:
+        '200':
+          description: Курьер успешно назначен на заказ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignDeliveryResponse'
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Заказ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Нет доступных курьеров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/delivery/unassign:
+    post:
+      summary: Отменить назначение курьера на заказ
+      description: Убирает назначение курьера с указанного заказа
+      tags:
+        - Delivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnassignDeliveryRequest'
+      responses:
+        '200':
+          description: Назначение курьера успешно отменено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnassignDeliveryResponse'
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Заказ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/orders:
+    get:
+      summary: Получить список заказов
+      description: Возвращает список заказов с пагинацией
+      tags:
+        - Order
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Количество записей для возврата (по умолчанию 10)
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          description: Смещение для пагинации (по умолчанию 0)
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderDTO'
+        '204':
+          description: Заказы не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/order:
+    post:
+      summary: Создать заказ
+      description: Создает новый заказ
+      tags:
+        - Order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Заказ успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDTO'
+        '400':
+          description: Неверные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    CourierDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор курьера
+        name:
+          type: string
+          description: Имя курьера
+        phone:
+          type: string
+          description: Номер телефона курьера (RU или AM формат)
+        status:
+          type: string
+          enum: [available, busy, paused]
+          description: Статус курьера
+        transport_type:
+          type: string
+          description: Тип транспорта курьера
+      required:
+        - id
+        - name
+        - phone
+        - status
+        - transport_type
+
+    CreateCourierRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Имя курьера
+        phone:
+          type: string
+          description: Номер телефона курьера (RU или AM формат)
+        status:
+          type: string
+          enum: [available, busy, paused]
+          description: Статус курьера
+        transport_type:
+          type: string
+          description: Тип транспорта курьера
+      required:
+        - name
+        - phone
+        - status
+
+    UpdateCourierRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор курьера для обновления
+        name:
+          type: string
+          description: Имя курьера
+        phone:
+          type: string
+          description: Номер телефона курьера (RU или AM формат)
+        status:
+          type: string
+          enum: [available, busy, paused]
+          description: Статус курьера
+        transport_type:
+          type: string
+          description: Тип транспорта курьера
+      required:
+        - id
+
+    AssignDeliveryRequest:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: Идентификатор заказа
+      required:
+        - order_id
+
+    AssignDeliveryResponse:
+      type: object
+      properties:
+        courier_id:
+          type: integer
+          format: int64
+          description: Идентификатор назначенного курьера
+        order_id:
+          type: string
+          description: Идентификатор заказа
+        transport_type:
+          type: string
+          description: Тип транспорта назначенного курьера
+        delivery_deadline:
+          type: string
+          format: date-time
+          description: Крайний срок доставки
+      required:
+        - courier_id
+        - order_id
+        - transport_type
+        - delivery_deadline
+
+    UnassignDeliveryRequest:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: Идентификатор заказа
+      required:
+        - order_id
+
+    UnassignDeliveryResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Сообщение об успешной отмене назначения
+      required:
+        - message
+
+    OrderDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор заказа
+        description:
+          type: string
+          description: Описание заказа
+        status:
+          type: string
+          enum: [pending, completed, cancelled]
+          description: Статус заказа
+      required:
+        - id
+        - description
+        - status
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Описание заказа
+      required:
+        - description
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Сообщение об ошибке
+        code:
+          type: integer
+          description: HTTP статус код
+      required:
+        - message
+        - code
+
+tags:
+  - name: Service
+    description: Системные эндпоинты для проверки состояния сервиса
+  - name: Courier
+    description: Операции с курьерами
+  - name: Delivery
+    description: Операции назначения курьеров на доставки
+  - name: Order
+    description: Операции с заказами
+
+
+
+
+
+

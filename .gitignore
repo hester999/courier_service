@@ -1,0 +1,5 @@
+*.env
+build/*.exe
+*.exe
+build/server
+.idea

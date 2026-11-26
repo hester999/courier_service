@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  courier_service:
+    build:
+      context: .
+      dockerfile: internal/infra/Dockerfile.server
+    container_name: courier_service
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      PORT: ${PORT}
+      ORDER_SERVICE_HOST: ${ORDER_SERVICE_HOST}
+    ports:
+      - "${COURIER_PORT}:${PORT}"
+    networks:
+      - infrastructure_default
+      - monitoring
+
+  postgres:
+    image: postgres:15
+    container_name: courier-postgres
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - infrastructure_default
+      - monitoring
+
+  postgres-test:
+    image: postgres:15
+    container_name: test_database
+    restart: always
+    environment:
+      PG_USER: "test"
+      PG_PASSWORD: "test"
+      PG_DB: "test"
+    ports:
+      - "9999:5432"
+    volumes:
+      - testdata:/var/lib/postgresql/data
+    networks:
+      - infrastructure_default
+
+  worker_service:
+    build:
+      context: .
+      dockerfile: internal/infra/Dockerfile.worker
+    container_name: courier_worker
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      KAFKA_HOST: kafka
+    networks:
+      - infrastructure_default
+      - monitoring
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+
+volumes:
+  pgdata:
+  testdata:
+  grafana-data:
+  prometheus-data:
+
+networks:
+  infrastructure_default:
+    external: true
+  monitoring:
+    driver: bridge

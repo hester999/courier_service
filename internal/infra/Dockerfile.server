@@ -1,0 +1,22 @@
+
+FROM golang:1.25-alpine
+
+WORKDIR /app
+
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+
+COPY . .
+
+
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+
+
+RUN go build -o /server cmd/server/server.go
+
+
+ENV MIGRATION_PATH=./migration
+
+ENTRYPOINT ["sh", "-c", "goose -dir ${MIGRATION_PATH} postgres \"host=postgres user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=5432 sslmode=disable\" up && /server"]
